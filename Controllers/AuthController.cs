@@ -32,6 +32,8 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register(RegisterDto data)
     {
         _logger.LogInformation("Register attempt for email: {Email}", data.Email);
+        _logger.LogInformation("Business name: {BusinessName}", data.BusinessName);
+        _logger.LogInformation("Full registration data: {@Data}", data);
 
         // 1. Check for duplicate email
         var existingUser = await _userManager.FindByEmailAsync(data.Email);
@@ -63,7 +65,7 @@ public class AuthController : ControllerBase
         var result = await _userManager.CreateAsync(user, data.Password);
         if (!result.Succeeded)
         {
-
+                _logger.LogError("User creation failed: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
             // Clean up the business if user creation failed
             _context.Businesses.Remove(business);
             await _context.SaveChangesAsync();
@@ -82,9 +84,7 @@ public class AuthController : ControllerBase
         try
         {
             var tokenResponse = await _jwtTokenService.GenerateTokenAsync(user);
-
-   
-
+            _logger.LogInformation("User {Email} registered and logged in successfully", user.Email);
             // Return token response with user data
             return Ok(new AuthResponseDto
             {
@@ -104,7 +104,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "JWT generation failed for newly registered user {Email}", user.Email);
+            _logger.LogError(ex, "ERROR creating", user.Email);
 
             return Ok(new
             {

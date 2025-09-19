@@ -1,4 +1,4 @@
-using Api.Enums;
+
 using System.ComponentModel.DataAnnotations;
 
 namespace Api.DTOs;
@@ -14,7 +14,7 @@ public class AddressDto
 public class ClientResponseDto
 {
     public Guid Id { get; set; }
-    public Salutation Salutation { get; set; }
+
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string PreferredName { get; set; } = string.Empty;
@@ -29,7 +29,7 @@ public class ClientResponseDto
 
 public class CreateClientDto
 {
-    public Salutation Salutation { get; set; } = Salutation.None;
+
 
     [Required]
     [StringLength(100, ErrorMessage = "First name cannot exceed 100 characters")]
@@ -59,7 +59,7 @@ public class CreateClientDto
 
 public class UpdateClientDto
 {
-    public Salutation Salutation { get; set; } = Salutation.None;
+
 
     [Required]
     [StringLength(100, ErrorMessage = "First name cannot exceed 100 characters")]
@@ -92,7 +92,7 @@ public class UpdateClientDto
 public class ClientListDto
 {
     public Guid Id { get; set; }
-    public Salutation Salutation { get; set; }
+
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string PreferredName { get; set; } = string.Empty;
