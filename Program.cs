@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
@@ -26,8 +27,9 @@ builder.Services.AddCors(options =>
         });
 });
 
-// Dependency injection for JWT token service
+
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 
 // Database connection (PostgreSQL) with logging
@@ -38,7 +40,7 @@ try
 
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseNpgsql(connectionString)
-               .LogTo(Console.WriteLine, LogLevel.Information) // Add EF Core logging
+               .LogTo(Console.WriteLine, LogLevel.Information) 
                .EnableSensitiveDataLogging() // Shows parameter values (dev only)
                .EnableDetailedErrors()); // More detailed error info
 
@@ -54,6 +56,12 @@ catch (Exception ex)
 builder.Services.AddIdentity<User, IdentityRole<Guid>>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
+
+builder.Services.Configure<IdentityOptions>(options =>
+{
+    options.SignIn.RequireConfirmedEmail = true;
+});
+
 
 // JWT Authentication Configuration
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -81,6 +89,8 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
     };
 });
+
+
 
 builder.Services.AddAuthorization();
 
