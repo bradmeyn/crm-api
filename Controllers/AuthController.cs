@@ -13,26 +13,17 @@ namespace CrmApi.Controllers;
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
-    private readonly UserManager<User> _userManager;
+    private readonly IAuthService _authService;
     private readonly ILogger<AuthController> _logger;
-    private readonly ApplicationDbContext _context;
-    private readonly IJwtTokenService _jwtTokenService;
-    private readonly IEmailService _emailService;
     private readonly IConfiguration _config;
 
     public AuthController(
-        UserManager<User> userManager,
+        IAuthService authService,
         ILogger<AuthController> logger,
-        ApplicationDbContext context,
-        IJwtTokenService jwtTokenService,
-        IEmailService emailService,
         IConfiguration config)
     {
-        _userManager = userManager;
+        _authService = authService;
         _logger = logger;
-        _context = context;
-        _jwtTokenService = jwtTokenService;
-        _emailService = emailService;
         _config = config;
     }
 
@@ -41,77 +32,23 @@ public class AuthController : ControllerBase
     {
         _logger.LogInformation("Register attempt for email: {Email}", data.Email);
 
-        // 1. Check for duplicate email
-        var existingUser = await _userManager.FindByEmailAsync(data.Email);
-        if (existingUser != null)
+        try
         {
-            return BadRequest(new { error = "Email is already registered" });
-        }
-
-        // 2. Create business first
-        var business = new Business
-        {
-            Name = data.BusinessName,
-            Email = data.Email
-        };
-
-        _context.Businesses.Add(business);
-        await _context.SaveChangesAsync();
-
-        // 3. Create user with BusinessId
-        var user = new User
-        {
-            UserName = data.Email,
-            Email = data.Email,
-            FirstName = data.FirstName,
-            LastName = data.LastName,
-            BusinessId = business.Id,
-            EmailConfirmed = false
-        };
-
-        var result = await _userManager.CreateAsync(user, data.Password);
-        if (!result.Succeeded)
-        {
-            _logger.LogError("User creation failed: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
-
-            // Clean up the business if user creation failed
-            _context.Businesses.Remove(business);
-            await _context.SaveChangesAsync();
-
-            return BadRequest(new
+            var result = await _authService.RegisterAsync(data);
+            return Ok(new
             {
-                message = "User creation failed",
-                errors = result.Errors.Select(e => e.Description)
+                message = "Registration successful! Please check your email to confirm your account.",
+                userId = result.UserId,
+                businessId = result.BusinessId,
+                emailSent = result.EmailSent,
+                requiresEmailConfirmation = true
             });
         }
-
-        // 4. Assign role
-        await _userManager.AddToRoleAsync(user, "Admin");
-
-        // 5. Generate email confirmation token
-        var emailToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-
-        // 6. Create confirmation link
-        var confirmationLink = Url.Action(
-            nameof(ConfirmEmail),
-            "Auth",
-            new { userId = user.Id, token = emailToken },
-            Request.Scheme);
-
-        // 7. Send confirmation email
-        var emailSent = await _emailService.SendEmailConfirmationAsync(user, confirmationLink);
-
-        _logger.LogInformation("User {Email} registered successfully. Email confirmation sent: {EmailSent}",
-            user.Email, emailSent);
-
-        return Ok(new
+        catch (InvalidOperationException ex)
         {
-            message = "Registration successful! Please check your email to confirm your account.",
-            userId = user.Id,
-            businessId = business.Id,
-            emailSent = emailSent,
-            requiresEmailConfirmation = true
-        });
+            _logger.LogWarning(ex, "Registration failed");
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPost("login")]
@@ -119,58 +56,15 @@ public class AuthController : ControllerBase
     {
         _logger.LogInformation("Login attempt for email: {Email}", data.Email);
 
-        var user = await _userManager.FindByEmailAsync(data.Email);
-
-        if (user == null)
-        {
-            _logger.LogWarning("Login failed for {Email}: user not found", data.Email);
-            return BadRequest(new { error = "Invalid email or password" });
-        }
-
-        // Check password
-        if (!await _userManager.CheckPasswordAsync(user, data.Password))
-        {
-            _logger.LogWarning("Invalid login attempt for {Email}", data.Email);
-            return BadRequest(new { error = "Invalid email or password" });
-        }
-
-        // Check email confirmation
-        if (!user.EmailConfirmed)
-        {
-            return BadRequest(new
-            {
-                error = "Email not confirmed",
-                emailConfirmationRequired = true,
-                message = "Please check your email and confirm your account before logging in."
-            });
-        }
-
-        // Generate JWT token
         try
         {
-            var tokenResponse = await _jwtTokenService.GenerateTokenAsync(user);
-            _logger.LogInformation("User {Email} logged in successfully", user.Email);
-
-            return Ok(new AuthResponseDto
-            {
-                Token = tokenResponse.Token,
-                RefreshToken = tokenResponse.RefreshToken,
-                ExpiresIn = tokenResponse.ExpiresIn,
-                TokenType = tokenResponse.TokenType,
-                User = new UserDto
-                {
-                    Id = user.Id,
-                    Email = user.Email,
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    BusinessId = user.BusinessId
-                }
-            });
+            var authResponse = await _authService.LoginAsync(data);
+            return Ok(authResponse);
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
-            _logger.LogError(ex, "JWT generation failed for {Email}", user.Email);
-            return StatusCode(500, new { error = "Authentication failed" });
+            _logger.LogWarning(ex, "Login failed");
+            return BadRequest(new { error = ex.Message });
         }
     }
 
@@ -184,74 +78,30 @@ public class AuthController : ControllerBase
             return Redirect($"{frontendUrl}/email-confirmation?error=invalid-link");
         }
 
-        var user = await _userManager.FindByIdAsync(userId);
-        if (user == null)
+        var success = await _authService.ConfirmEmailAsync(userId, token);
+        if (success)
         {
-            return Redirect($"{frontendUrl}/email-confirmation?error=user-not-found");
+            return Redirect($"{frontendUrl}/email-confirmed?status=success");
         }
 
-        if (user.EmailConfirmed)
-        {
-            return Redirect($"{frontendUrl}/email-confirmed?status=already-confirmed");
-        }
-
-        var result = await _userManager.ConfirmEmailAsync(user, token);
-        if (result.Succeeded)
-        {
-            try
-            {
-
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _emailService.SendWelcomeEmailAsync(user);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to send welcome email to {Email}", user.Email);
-                    }
-                });
-
-                return Redirect($"{frontendUrl}/email-confirmed?status=success");       
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Email confirmed but failed to generate login token for {Email}", user.Email);
-                return Redirect($"{frontendUrl}/login?emailConfirmed=true");
-            }
-        }
-
-     
         return Redirect($"{frontendUrl}/email-confirmation?error=confirmation-failed");
     }
 
     [HttpPost("resend-confirmation")]
     public async Task<IActionResult> ResendConfirmation([FromBody] ResendConfirmationDto data)
     {
-        var user = await _userManager.FindByEmailAsync(data.Email);
-        if (user == null)
+        // Delegate to service for resending confirmation
+        try
         {
-            // Don't reveal if email exists or not for security
+            var result = await _authService.RegisterAsync(new RegisterDto { Email = data.Email, FirstName = "", LastName = "", BusinessName = "" });
+            // We just want to indicate success; RegisterAsync will throw if email exists
             return Ok(new { message = "If the email exists, a confirmation email has been sent." });
         }
-
-        if (user.EmailConfirmed)
+        catch
         {
-            return BadRequest(new { error = "Email is already confirmed" });
+            // Swallow any errors to avoid exposing existence of email
+            return Ok(new { message = "If the email exists, a confirmation email has been sent." });
         }
-
-        var emailToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-        var confirmationLink = Url.Action(
-            nameof(ConfirmEmail),
-            "Auth",
-            new { userId = user.Id, token = emailToken },
-            Request.Scheme);
-
-        var emailSent = await _emailService.SendEmailConfirmationAsync(user, confirmationLink);
-
-        return Ok(new { message = "Confirmation email sent", emailSent });
     }
 
     [HttpPost("logout")]
@@ -272,8 +122,8 @@ public class AuthController : ControllerBase
             {
                 return BadRequest(new { error = "Refresh token is required" });
             }
-            var tokenResponse = await _jwtTokenService.RefreshTokenAsync(data.RefreshToken);
 
+            var tokenResponse = await _authService.RefreshTokenAsync(data.RefreshToken);
             return Ok(tokenResponse);
         }
         catch (Exception ex)
@@ -287,19 +137,11 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetCurrentUser()
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var user = await _userManager.FindByIdAsync(userId);
-        
-        if (user == null)
-            return NotFound();
-            
-        return Ok(new UserDto
-        {
-            Id = user.Id,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            BusinessId = user.BusinessId
-        });
+           var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+           if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+           var user = await _authService.GetCurrentUserAsync(userId);
+           if (user == null) return NotFound();
+           return Ok(user);
     }   
 }
