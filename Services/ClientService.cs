@@ -46,7 +46,18 @@ public class ClientService : IClientService
             .FirstOrDefaultAsync(c => c.BusinessId == client.BusinessId && c.Id == client.Id);
 
         if (existingClient == null) return false;
-
+        // Copy updatable fields from incoming client DTO/model into the existing entity
+        existingClient.Title = client.Title ?? existingClient.Title;
+        existingClient.FirstName = client.FirstName ?? existingClient.FirstName;
+        existingClient.PreferredName = client.PreferredName ?? existingClient.PreferredName;
+        existingClient.LastName = client.LastName ?? existingClient.LastName;
+        existingClient.Email = client.Email ?? existingClient.Email;
+        existingClient.Phone = client.Phone ?? existingClient.Phone;
+        existingClient.Street = client.Street ?? existingClient.Street;
+        existingClient.Suburb = client.Suburb ?? existingClient.Suburb;
+        existingClient.State = client.State ?? existingClient.State;
+        existingClient.PostCode = client.PostCode ?? existingClient.PostCode;
+        existingClient.UpdatedAt = DateTime.UtcNow;
 
         _context.Clients.Update(existingClient);
         await _context.SaveChangesAsync();
