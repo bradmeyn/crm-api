@@ -1,15 +1,13 @@
+using CrmApi.Models.Client.Enums;
 
-
-namespace CrmApi.Models
+namespace CrmApi.Models.Client
 {
     public class Client
     {
         public Guid Id { get; set; } = Guid.NewGuid();
 
         public string Title { get; set; } = string.Empty;
-
         public string FirstName { get; set; } = string.Empty;
-
         public string PreferredName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
@@ -21,12 +19,34 @@ namespace CrmApi.Models
         public string? Suburb { get; set; }
         public string? State { get; set; }
         public string? PostCode { get; set; }
+        public string? Country { get; set; } = "Australia";
 
+
+         // Client Management
+        public ClientStatus Status { get; set; } = ClientStatus.Prospect;
+        public DateTime? ClientSince { get; set; }
+        public DateTime? LastContactDate { get; set; }
+        public DateTime? NextReviewDate { get; set; }
+
+        // Audit fields
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public Guid CreatedById { get; set; }
+        public User CreatedBy { get; set; } = null!;
+        public Guid UpdatedById { get; set; }
+        public User UpdatedBy { get; set; } = null!;
 
+        // Associations
         public Guid BusinessId { get; set; }
         public Business Business { get; set; } = null!;
+        public Guid? PrimaryAdvisorId { get; set; }
+        public User? PrimaryAdvisor { get; set; }
 
+
+
+
+
+
+  
     }
 }
