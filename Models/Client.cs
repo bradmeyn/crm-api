@@ -1,6 +1,6 @@
-using CrmApi.Models.Client.Enums;
 
-namespace CrmApi.Models.Client
+
+namespace CrmApi.Models
 {
     public class Client
     {
@@ -41,12 +41,13 @@ namespace CrmApi.Models.Client
         public Business Business { get; set; } = null!;
         public Guid? PrimaryAdvisorId { get; set; }
         public User? PrimaryAdvisor { get; set; }
+    }
 
-
-
-
-
-
-  
+    public enum ClientStatus
+    {
+        Prospect,      // Not yet a client
+        Active,        // Current client
+        Inactive,      // No longer actively managed
+        Archived       // Historical record
     }
 }
