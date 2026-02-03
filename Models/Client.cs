@@ -2,9 +2,8 @@
 
 namespace CrmApi.Models
 {
-    public class Client
+    public class Client: BaseEntity
     {
-        public Guid Id { get; set; } = Guid.NewGuid();
 
         public string Title { get; set; } = string.Empty;
         public string FirstName { get; set; } = string.Empty;
@@ -27,14 +26,6 @@ namespace CrmApi.Models
         public DateTime? ClientSince { get; set; }
         public DateTime? LastContactDate { get; set; }
         public DateTime? NextReviewDate { get; set; }
-
-        // Audit fields
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
-        public Guid CreatedById { get; set; }
-        public User CreatedBy { get; set; } = null!;
-        public Guid UpdatedById { get; set; }
-        public User UpdatedBy { get; set; } = null!;
 
         // Associations
         public Guid BusinessId { get; set; }

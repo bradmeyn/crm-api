@@ -1,9 +1,8 @@
-
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Api.DTOs.Client;
 using CrmApi.Models;
-using System;
+using CrmApi.Services;
 
 
 [Authorize]
@@ -15,46 +14,37 @@ public class ClientController : ControllerBase
     private readonly IClientService _clientService;
     private readonly ILogger<ClientController> _logger;
 
-     protected Guid BusinessId
-    {
-        get
-        {
-            var businessIdClaim = User?.FindFirst("businessId")?.Value;
-            if (string.IsNullOrEmpty(businessIdClaim) || !Guid.TryParse(businessIdClaim, out var id))
-            {
-                throw new UnauthorizedAccessException("Business ID not found in claims");
-            }
-            return id;
-        }
-    }
+    private readonly ICurrentUserService _currentUserService;
+
 
     public ClientController(
         IClientService clientService,
+        ICurrentUserService currentUserService,
         ILogger<ClientController> logger
     )
     {
         _clientService = clientService;
         _logger = logger;
+        _currentUserService = currentUserService;
     }
 
  [HttpGet]
     public async Task<IActionResult> GetClients()
     {
-
-        var clients = await _clientService.GetClientsAsync(BusinessId);
+        var clients = await _clientService.GetClientsAsync(_currentUserService.BusinessId);
         return Ok(clients);
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetClientById(Guid id)
     {
-        var client = await _clientService.GetClientByIdAsync(BusinessId, id);
+        var client = await _clientService.GetClientByIdAsync(_currentUserService.BusinessId, id);
         if (client == null) return NotFound();
         return Ok(client);
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateClient([FromBody] CreateClientDto dto) // ✅ Use DTO, not entity
+    public async Task<IActionResult> CreateClient([FromBody] CreateClientDto dto) 
     {
         var client = new Client
         {
@@ -68,7 +58,7 @@ public class ClientController : ControllerBase
             Suburb = dto.Address?.Suburb,
             State = dto.Address?.State,
             PostCode = dto.Address?.PostCode,
-            BusinessId = BusinessId,
+            BusinessId = _currentUserService.BusinessId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -78,7 +68,7 @@ public class ClientController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateClient(Guid id, [FromBody] UpdateClientDto dto) // ✅ Use DTO
+    public async Task<IActionResult> UpdateClient(Guid id, [FromBody] UpdateClientDto dto) 
     {
         var client = new Client
         {
@@ -93,7 +83,7 @@ public class ClientController : ControllerBase
             Suburb = dto.Address?.Suburb,
             State = dto.Address?.State,
             PostCode = dto.Address?.PostCode,
-            BusinessId = dto.BusinessId,
+            BusinessId = _currentUserService.BusinessId,
             UpdatedAt = DateTime.UtcNow
         };
 
@@ -101,14 +91,14 @@ public class ClientController : ControllerBase
         if (!updated) return NotFound();
 
         // Return the updated client
-        var updatedClient = await _clientService.GetClientByIdAsync(BusinessId, id);
+        var updatedClient = await _clientService.GetClientByIdAsync(_currentUserService.BusinessId, id);
         return Ok(updatedClient);
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteClient(Guid id)
     {
-        var deleted = await _clientService.DeleteClientAsync(BusinessId, id);
+        var deleted = await _clientService.DeleteClientAsync(_currentUserService.BusinessId, id);
         if (!deleted) return NotFound();
         return NoContent();
     }    

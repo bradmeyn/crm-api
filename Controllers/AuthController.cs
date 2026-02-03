@@ -1,7 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Identity;
-using CrmApi.Data;
-using CrmApi.Models;
 using CrmApi.DTOs.Auth;
 using CrmApi.Services; 
 using Microsoft.AspNetCore.Authorization;

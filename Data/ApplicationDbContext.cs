@@ -15,6 +15,8 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     // Users DBset comes from IdentityDbContext
     public DbSet<Business> Businesses { get; set; }
     public DbSet<Client> Clients { get; set; }
+    public DbSet<Note> Notes { get; set; }
+    public DbSet<ClientNoteDocument> ClientNoteDocuments {get; set;}
 
   protected override void OnModelCreating(ModelBuilder builder)
 {

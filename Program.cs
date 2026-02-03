@@ -7,7 +7,10 @@ using CrmApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.IdentityModel.Tokens.Jwt;
 
+// Disable default claim type mapping so JWT claims keep their original names (e.g., "sub" stays "sub")
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,7 +34,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IClientService, ClientService>();
+builder.Services.AddScoped<IClientNoteService, ClientNoteService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 
 // Database connection (PostgreSQL) with logging
@@ -92,7 +97,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddAuthorization();
 
