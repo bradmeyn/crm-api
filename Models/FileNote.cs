@@ -1,6 +1,6 @@
 namespace CrmApi.Models;
 
-public class Note: BaseEntity
+public class FileNote: BaseEntity
 {
     public string Type {get; set;} = string.Empty;
     public string Title { get; set; } = string.Empty;
@@ -10,4 +10,5 @@ public class Note: BaseEntity
     public Guid ClientId { get; set; }
     public Client Client { get; set; } = null!;
     public User UpdatedBy { get; set; } = null!;
+    public List<FileNoteDocument> Documents { get; set; } = [];
 }

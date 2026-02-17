@@ -8,6 +8,7 @@ namespace CrmApi.Services;
 public interface IFileStorageService
 {
     Task<string> UploadAsync(Stream fileStream, string fileName, string contentType);
+    string GetDownloadUrl(string blobName, TimeSpan expiry);
     // Task<Stream> DownloadAsync(string blobName);
     // Task<bool> DeleteAsync(string blobName);
     // string GetDownloadUrl(string blobName, TimeSpan expiry);
@@ -34,5 +35,26 @@ public class FileStorageService : IFileStorageService
 
         _logger.LogInformation("File uploaded to blob storage with name {BlobName}", blobName);
         return blobName;
+    }
+
+    public string GetDownloadUrl(string blobName, TimeSpan expiry)
+    {
+        var blobClient = _containerClient.GetBlobClient(blobName);
+
+        if (!blobClient.CanGenerateSasUri)
+        {
+            throw new InvalidOperationException("Storage client cannot generate SAS URLs with the current configuration.");
+        }
+
+        var sasBuilder = new BlobSasBuilder
+        {
+            BlobContainerName = _containerClient.Name,
+            BlobName = blobName,
+            Resource = "b",
+            ExpiresOn = DateTimeOffset.UtcNow.Add(expiry)
+        };
+
+        sasBuilder.SetPermissions(BlobSasPermissions.Read);
+        return blobClient.GenerateSasUri(sasBuilder).ToString();
     }
 }

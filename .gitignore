@@ -2,7 +2,9 @@
 [Bb]in/
 [Oo]bj/
 
-
+# Brad
+commands.txt
+.env
 
 # Visual Studio files
 .vs/
